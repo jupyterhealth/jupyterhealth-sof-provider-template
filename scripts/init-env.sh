@@ -28,6 +28,8 @@ prompt() {
 {
   echo "# Local config for THIS deployment — gitignored, do NOT commit."
   prompt JHE_URL               "JupyterHealth Exchange base URL"            "https://jhe.example.org"
+  prompt JHE_CLIENT_ID         "JHE confidential client id for the token exchange" "sof-ehr-launch"
+  prompt JHE_CLIENT_SECRET     "JHE confidential client secret"             "sof-ehr-launch-dev-secret"
   prompt SMART_CLIENT_ID       "SMART client_id from your EHR app registration" "00000000-0000-0000-0000-000000000000"
   prompt SMART_SCOPES          "SMART scopes (space-separated)"             "openid fhirUser launch patient/*.read"
   prompt EHR_IFRAME_ORIGIN     "EHR web origin that embeds this app (CSP)"  "https://app.medplum.com"
