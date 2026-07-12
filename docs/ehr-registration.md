@@ -19,7 +19,19 @@ registration or security review.
 openid fhirUser launch patient/*.read
 ```
 `launch` is required for EHR launch; `patient/*.read` lets the app read the launched
-patient. Add `fhirUser`/`openid` for identity.
+patient. Add `fhirUser`/`openid` for identity. Set the scopes in `.env`
+(`SMART_SCOPES`) to match what your EHR accepts:
+
+- **Epic** does not honor wildcard scopes — request the explicit resource read. The
+  grammar depends on the app registration's **SMART Scope Version**: SMART v1 →
+  `patient/Patient.read`; SMART v2 → `patient/Patient.r`. The only EHR resource this
+  app reads is `Patient`, so e.g. `SMART_SCOPES=openid fhirUser launch patient/Patient.r`
+  for a v2 registration.
+- **Testing without an embedded EHR launch** (e.g. Epic's sandbox without vendor
+  services): use a standalone launch by swapping `launch` for `launch/patient` and
+  opening `/smart-on-fhir/launch?iss=<fhir-base>` directly — the EHR then prompts
+  for login and patient selection itself.
+- **MedPlum** accepts the wildcard default as-is.
 
 ## 3. Find your MRN identifier system
 The app matches the EHR patient to JHE by MRN. In your EHR, inspect a test
