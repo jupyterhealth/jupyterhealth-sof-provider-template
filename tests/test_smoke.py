@@ -1,14 +1,14 @@
 """End-to-end smoke test: run dashboard.ipynb's code against fakes.
 
-Proves launch_context -> jhe_auth -> patient_resolver/identity -> notebook viz wire
-together without a real EHR or JHE. Executes the notebook's code cells in-process with
-fakes injected (a real kernel would not see in-process monkeypatches). Run from the
-project root: `pytest tests/test_smoke.py`.
+Proves launch_context -> jhe_auth -> jhe_data.fetch (identity guard included) ->
+notebook viz wire together without a real EHR or JHE. Executes the notebook's code
+cells in-process with fakes injected (a real kernel would not see in-process
+monkeypatches). Run from the project root: `pytest tests/test_smoke.py`.
 
-Asserts the CGM showcase dashboard's contract (the active dashboard.ipynb is
-examples/cgm-dashboard.ipynb): a populated `cgm` frame plus the fail-closed
-identity guard. If you replace dashboard.ipynb with your own notebook, adapt these
-assertions or skip this test.
+Asserts the DEFAULT scaffold's contract (a `data` dict containing `heart_rate`,
+plus the fail-closed identity guard). If you replace dashboard.ipynb — e.g.
+`cp examples/cgm-dashboard.ipynb dashboard.ipynb` — or change the scaffold cell,
+adapt these assertions or skip this test.
 """
 import json
 from pathlib import Path
@@ -40,15 +40,13 @@ class FakeJheClient:
 
     def list_observations_df(self, patient_id=None, code=None, limit=2000):
         self.observation_calls.append((patient_id, code, limit))
-        times = pd.date_range("2026-06-01T08:00:00", periods=48, freq="30min")
         return pd.DataFrame({
-            "blood_glucose_value": [100 + (i % 7) * 12 for i in range(48)],
-            "blood_glucose_unit": ["MGDL"] * 48,
-            "effective_time_frame_date_time_local": times.astype(str),
+            "code_coding_0_code": ["omh:heart-rate:2.0", "omh:heart-rate:2.0"],
+            "effective_time_frame_date_time": pd.to_datetime(
+                ["2026-06-01T00:00:00Z", "2026-06-01T01:00:00Z"], utc=True
+            ),
+            "heart_rate_value": [65, 72],
         })
-
-    def list_observations(self, patient_id=None, limit=2000):
-        return []  # showcase degrades gracefully with no wearable signals
 
 
 def _run_dashboard(tmp_path, monkeypatch, jhe_client):
@@ -75,8 +73,8 @@ def _run_dashboard(tmp_path, monkeypatch, jhe_client):
     monkeypatch.setattr(jhe_auth, "JupyterHealthClient", lambda url=None, token=None: jhe_client)
 
     # Fake the EHR FHIR Patient fetch. Patching requests.get on the shared module
-    # covers all three readers: launch_context.current() (MRN extraction),
-    # identity.ehr_identity() (same-person guard), and the notebook's header cell.
+    # covers both readers: launch_context.current() (MRN extraction) and
+    # identity.ehr_identity() (the same-person guard inside jhe_data.fetch).
     class _Resp:
         def raise_for_status(self):
             pass
@@ -104,16 +102,16 @@ def _run_dashboard(tmp_path, monkeypatch, jhe_client):
     return namespace
 
 
-def test_notebook_renders_report_for_matching_identity(tmp_path, monkeypatch):
+def test_notebook_code_executes(tmp_path, monkeypatch):
     client = FakeJheClient()
     ns = _run_dashboard(tmp_path, monkeypatch, client)
 
+    # the scaffolded cell populated `data` with the fetched frames via the REAL
+    # jhe_data.fetch (identity guard passed against the matching fake EHR patient)
     assert ns["access_note"] is None
-    assert ns["patient_id"] == 7
-    assert not ns["cgm"].empty
-    # showcase built (glucose-only patient: signals absent, report still renders)
-    assert ns["showcase_payload"] is not None
-    assert ns["showcase_payload"]["has"]["glucose"] is True
+    assert "data" in ns
+    assert "heart_rate" in ns["data"]
+    assert not ns["data"]["heart_rate"].empty
 
 
 def test_notebook_fails_closed_on_identity_mismatch(tmp_path, monkeypatch):
@@ -124,6 +122,5 @@ def test_notebook_fails_closed_on_identity_mismatch(tmp_path, monkeypatch):
 
     assert ns["access_note"] is not None
     assert "identity" in ns["access_note"].lower()
-    assert ns["cgm"].empty
-    assert ns["showcase_payload"] is None
+    assert ns["data"] == {}
     assert client.observation_calls == []
