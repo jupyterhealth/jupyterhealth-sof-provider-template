@@ -13,8 +13,8 @@ Pick one:
 
 - **GitHub (easiest):** click **Use this template → Create a new repository** — you get a
   fresh repo (new history) with all files copied into your account.
-- **CLI:** `gh repo create my-org/acme-provider-app --template the-commons-project/jupyterhealth-sof-provider-template --private`
-- **Local, no GitHub repo:** `npx degit the-commons-project/jupyterhealth-sof-provider-template acme-provider-app`
+- **CLI:** `gh repo create my-org/acme-provider-app --template jupyterhealth/jupyterhealth-sof-provider-template --private`
+- **Local, no GitHub repo:** `npx degit jupyterhealth/jupyterhealth-sof-provider-template acme-provider-app`
 - **Or just** `git clone` this repo.
 
 Then configure and run:
