@@ -86,7 +86,15 @@ def current(http_get: Optional[Callable[..., Any]] = None) -> LaunchContext:
 
     url = f"{fhir_base.rstrip('/')}/Patient/{fhir_patient_id}"
     try:
-        response = http_get(url, headers={"Authorization": f"Bearer {access_token}"})
+        # Accept header is required cross-vendor: Epic serves XML unless
+        # application/fhir+json is requested explicitly (MedPlum defaults to JSON).
+        response = http_get(
+            url,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/fhir+json",
+            },
+        )
         response.raise_for_status()
         patient_resource = response.json()
     except requests.RequestException as e:
