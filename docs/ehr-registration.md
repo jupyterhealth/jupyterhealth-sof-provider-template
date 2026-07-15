@@ -19,7 +19,31 @@ registration or security review.
 openid fhirUser launch patient/*.read
 ```
 `launch` is required for EHR launch; `patient/*.read` lets the app read the launched
-patient. Add `fhirUser`/`openid` for identity.
+patient. Add `fhirUser`/`openid` for identity. Set the scopes in `.env`
+(`SMART_SCOPES`) to match what your EHR accepts:
+
+- **Epic** does not honor wildcard scopes — request the explicit resource read. The
+  grammar depends on the app registration's **SMART Scope Version**: SMART v1 →
+  `patient/Patient.read`; SMART v2 → `patient/Patient.r`. The only EHR resource this
+  app reads is `Patient`, so e.g. `SMART_SCOPES=openid fhirUser launch patient/Patient.r`
+  for a v2 registration.
+- **The id_token issuer is usually NOT the FHIR base.** JHE's `auth.sof.trusted_issuers`
+  must contain the id_token's literal `iss` value. Per standard OIDC practice this is
+  the EHR's dedicated OAuth server — e.g. Epic's sandbox issues
+  `https://fhir.epic.com/interconnect-fhir-oauth/oauth2`, not the
+  `…/api/FHIR/R4` base. (MedPlum is the outlier: its `iss` is the FHIR base URL, with a
+  trailing slash.) When in doubt, decode a captured id_token and copy its `iss` verbatim.
+- **Finding the MRN system on Epic:** inspect a test `Patient.identifier` — the MRN is
+  the `EPI`-typed identifier (sandbox: `urn:oid:1.2.840.114350.1.13.0.1.7.5.737384.14`);
+  each Epic install has its own OID.
+- **Testing without an embedded EHR launch:** Epic's own hosted Hyperspace simulator
+  covers this — on [fhir.epic.com](https://fhir.epic.com), open *Documentation →
+  Launching* and use the "SMART on FHIR (OAuth 2.0)" launcher (pick app + test patient +
+  your launch URL; Hyperspace sandbox login `FHIR` / `EpicFhir11!`). No vendor services
+  subscription needed. New/edited registrations can take ~1h+ to sync to the sandbox —
+  a generic "OAuth2 Error" or "Invalid OAuth 2.0 request" right after saving is usually
+  just that lag.
+- **MedPlum** accepts the wildcard default as-is.
 
 ## 3. Find your MRN identifier system
 The app matches the EHR patient to JHE by MRN. In your EHR, inspect a test

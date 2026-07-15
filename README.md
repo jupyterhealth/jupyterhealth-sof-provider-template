@@ -13,8 +13,8 @@ Pick one:
 
 - **GitHub (easiest):** click **Use this template → Create a new repository** — you get a
   fresh repo (new history) with all files copied into your account.
-- **CLI:** `gh repo create my-org/acme-provider-app --template the-commons-project/jupyterhealth-sof-provider-template --private`
-- **Local, no GitHub repo:** `npx degit the-commons-project/jupyterhealth-sof-provider-template acme-provider-app`
+- **CLI:** `gh repo create my-org/acme-provider-app --template jupyterhealth/jupyterhealth-sof-provider-template --private`
+- **Local, no GitHub repo:** `npx degit jupyterhealth/jupyterhealth-sof-provider-template acme-provider-app`
 - **Or just** `git clone` this repo.
 
 Then configure and run:
@@ -54,13 +54,17 @@ or `cp examples/cgm-dashboard.ipynb dashboard.ipynb` for the CGM showcase.
 **From your JupyterHealth Exchange (JHE) instance — where the data lives:**
 - `JHE_URL` — its **base URL** (e.g. `https://jhe.fly.dev`). Must exactly match the JHE
   instance's `SITE_URL` (the token-exchange audience check is an exact-match).
+- `JHE_CLIENT_ID` / `JHE_CLIENT_SECRET` — the app's **JHE confidential client** credentials
+  for the token exchange (JHE's seed registers "SoF EHR Launch" with dev-only defaults;
+  rotate for real deployments). The exchange runs server-side, so the secret stays there.
 - A **patient with data** whose **external identifier** (the MRN) equals the EHR patient's
   identifier *value* — that equality is the join key between the two systems.
 - JHE configured to **trust your EHR** so it accepts the id_token exchange (the app reads
   data with the token it mints at launch — no separate JHE token). See `docs/QUICKSTART.md`.
 
 > The app mints its JHE token at launch by exchanging the EHR id_token (RFC 8693), so
-> there is no JHE token to paste — auth is entirely the SMART launch.
+> there is no JHE token to paste — auth is the SMART launch plus the app's JHE client
+> credentials.
 
 ## Where to start
 - **`docs/QUICKSTART.md`** — **start here.** End-to-end: configure the id_token exchange,

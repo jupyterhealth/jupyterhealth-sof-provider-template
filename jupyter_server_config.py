@@ -17,6 +17,14 @@ c.ServerApp.jpserver_extensions = {  # noqa: F821
 c.SMARTExtensionApp.client_id = os.environ.get("SMART_CLIENT_ID", "00000000-0000-0000-0000-000000000000")  # noqa: F821
 c.SMARTExtensionApp.scopes = os.environ.get("SMART_SCOPES", "openid fhirUser launch patient/*.read").split()  # noqa: F821
 
+# --- Reverse proxy / https fronting ---
+# Behind an https proxy or tunnel (fly.io, cloudflared, ngrok) the OAuth
+# redirect_uri must be built with the PUBLIC scheme+host, not the container's.
+# Trust X-Forwarded-* from the proxy; SMART_REDIRECT_URI overrides explicitly.
+c.ServerApp.trust_xheaders = True  # noqa: F821
+if os.environ.get("SMART_REDIRECT_URI"):
+    c.SMARTExtensionApp.redirect_uri = os.environ["SMART_REDIRECT_URI"]  # noqa: F821
+
 # --- Authentication ---
 # The SMART/OAuth flow IS the auth layer. Disable Jupyter's own token/password login, else
 # the EHR launch (which carries no Jupyter token) bounces to /login.

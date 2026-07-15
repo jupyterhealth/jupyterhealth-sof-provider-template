@@ -43,7 +43,14 @@ def ehr_identity(ctx, http_get: Optional[Callable[..., Any]] = None) -> tuple[st
 
     url = f"{ctx.fhir_base.rstrip('/')}/Patient/{ctx.fhir_patient_id}"
     try:
-        resp = http_get(url, headers={"Authorization": f"Bearer {ctx.access_token}"})
+        # Accept header required cross-vendor (Epic serves XML by default).
+        resp = http_get(
+            url,
+            headers={
+                "Authorization": f"Bearer {ctx.access_token}",
+                "Accept": "application/fhir+json",
+            },
+        )
         resp.raise_for_status()
         patient = resp.json()
     except requests.RequestException as e:
