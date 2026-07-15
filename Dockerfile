@@ -2,11 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# git: needed to pip-install the pinned jupyter-smart-on-fhir from its git ref.
-# Once that dependency is pinned to a PyPI release, this apt step can be removed.
-RUN apt-get update && apt-get install -y --no-install-recommends git \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY pyproject.toml ./
 COPY provider_app ./provider_app
 RUN pip install --no-cache-dir .

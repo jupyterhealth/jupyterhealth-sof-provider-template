@@ -24,7 +24,12 @@ _DEFAULT_DATA_TYPE_CODES: dict[str, object] = {
     "steps": "omh:step-count:3.0",
 }
 
-_TIME_COLUMN = "effective_time_frame_date_time"
+# OMH effective time is a point (…date_time) or an interval (…start_date_time)
+# depending on the measure; date filtering uses whichever the frame carries.
+_TIME_COLUMNS = (
+    "effective_time_frame_date_time",
+    "effective_time_frame_time_interval_start_date_time",
+)
 
 # High enough to never hit the JHE API's default 2000-row page cap on a single
 # unfiltered fetch (see fetch() for why we fetch unfiltered).
@@ -63,15 +68,16 @@ def _code_string(code: object) -> str:
 
 
 def _filter_dates(df: pd.DataFrame, start: Optional[str], end: Optional[str]) -> pd.DataFrame:
-    if df.empty or _TIME_COLUMN not in df.columns:
+    time_column = next((c for c in _TIME_COLUMNS if c in df.columns), None)
+    if df.empty or time_column is None:
         return df
     if start is not None:
-        df = df[df[_TIME_COLUMN] >= pd.Timestamp(start, tz="UTC")]
+        df = df[df[time_column] >= pd.Timestamp(start, tz="UTC")]
     if end is not None:
         # `end` is an inclusive calendar date: keep all observations up to the
         # end of that day (otherwise intraday readings on `end` would be dropped).
         end_exclusive = pd.Timestamp(end, tz="UTC") + pd.Timedelta(days=1)
-        df = df[df[_TIME_COLUMN] < end_exclusive]
+        df = df[df[time_column] < end_exclusive]
     return df
 
 

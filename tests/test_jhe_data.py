@@ -106,6 +106,29 @@ def test_fetch_end_date_includes_intraday_observations(monkeypatch):
     assert len(result["heart_rate"]) == 1
 
 
+def test_fetch_filters_interval_timestamped_data_by_date_range(monkeypatch):
+    # Interval-based measures (e.g. wearable heart rate) carry the interval start
+    # column instead of the point column; start/end must filter those too
+    # (previously a silent no-op that returned the unfiltered frame).
+    monkeypatch.setattr(identity.requests, "get", _ehr_get())
+
+    class IntervalClient(FakeClient):
+        def list_observations_df(self, patient_id=None, code=None, limit=2000):
+            self.calls.append((patient_id, code, limit))
+            return pd.DataFrame({
+                "effective_time_frame_time_interval_start_date_time": pd.to_datetime(
+                    ["2026-06-01T00:00:00Z", "2026-06-05T00:00:00Z"], utc=True
+                ),
+                "heart_rate_value": [60, 72],
+            })
+
+    result = jhe_data.fetch(
+        _context(), types=["heart_rate"], client=IntervalClient(),
+        start="2026-06-03", end="2026-06-10",
+    )
+    assert len(result["heart_rate"]) == 1  # only the 2026-06-05 row
+
+
 def test_fetch_raises_on_identity_mismatch(monkeypatch):
     # JHE record is a different person (family Smith) than the launched EHR patient (Nguyen).
     monkeypatch.setattr(identity.requests, "get", _ehr_get(family="Nguyen"))

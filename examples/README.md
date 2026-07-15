@@ -48,8 +48,10 @@ still gets the report, with the showcase quietly noting the absent signals.
 
 There is **no separate JHE login**: the provider logs into the **EHR** (Medplum) during the
 SMART launch, and `provider_app/jhe_auth.py` exchanges the EHR id_token for a JHE token
-(RFC 8693) on every launch. JHE must be configured to trust the EHR issuer
-(`TRUSTED_TOKEN_ISSUERS` / `TRUSTED_TOKEN_AUDIENCE`) — see `docs/QUICKSTART.md`.
+(RFC 8693) on every launch, authenticating as the app's JHE confidential client
+(`JHE_CLIENT_ID` / `JHE_CLIENT_SECRET`). JHE must be configured to trust the EHR issuer
+(the `auth.sof.trusted_issuers` / `auth.sof.trusted_audience` settings) — see
+`docs/QUICKSTART.md`.
 
 ## Reproducible demo values — Medplum (EHR) + jhe.fly.dev (JHE)
 
