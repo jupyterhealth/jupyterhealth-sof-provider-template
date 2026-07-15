@@ -106,9 +106,8 @@ the launch is what supplies the patient context.
 ## 4. Simulate a SMART launch
 
 ### Path A — MedPlum (recommended)
-Follow the upstream tutorial, *Launch a JupyterHealth dashboard via SMART-on-FHIR
-(MedPlum example)*, in
-[jupyterhealth/software-documentation](https://github.com/jupyterhealth/software-documentation).
+Follow the upstream tutorial,
+[*Launch a JupyterHealth dashboard via SMART on FHIR (MedPlum example)*](https://jupyterhealth.github.io/software-documentation/tutorial/medplum-provider-dashboard).
 In short: register this app in MedPlum as a SMART app with:
 - Launch URL: `http://localhost:8888/smart-on-fhir/launch`
 - Redirect URL: `http://localhost:8888/smart-on-fhir/callback`
