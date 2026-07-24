@@ -1,0 +1,16 @@
+# Example fly.io deploy config. Copy to fly.toml and adjust.
+app = "jhe-provider-app"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8888
+  force_https = true
+  auto_stop_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = "2gb"
+  cpus = 2
