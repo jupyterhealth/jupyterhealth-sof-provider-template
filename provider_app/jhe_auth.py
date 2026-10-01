@@ -9,10 +9,10 @@ launching Practitioner on file keyed by the issuer's identifier. The SMART
 launch must request the 'openid fhirUser' scopes so that the EHR issues an
 id_token.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import requests
 from jupyterhealth_client import JupyterHealthClient
@@ -28,14 +28,14 @@ class TokenExchangeError(Exception):
     """Raised when JHE token exchange fails."""
 
 
-def _jhe_url(jhe_url: Optional[str]) -> str:
+def _jhe_url(jhe_url: str | None) -> str:
     url = (jhe_url or os.environ.get("JHE_URL", "")).rstrip("/")
     if not url:
         raise TokenExchangeError("JHE_URL environment variable is not set.")
     return url
 
 
-def exchange_token(context: LaunchContext, jhe_url: Optional[str] = None) -> str:
+def exchange_token(context: LaunchContext, jhe_url: str | None = None) -> str:
     """Exchange the SMART access token for a JHE access token (RFC 8693).
 
     JHE rejects issuers it is not configured to trust; the issuer defaults to the
@@ -69,7 +69,9 @@ def exchange_token(context: LaunchContext, jhe_url: Optional[str] = None) -> str
     return response.json()["access_token"]
 
 
-def client_for_launch(context: LaunchContext, jhe_url: Optional[str] = None) -> JupyterHealthClient:
+def client_for_launch(
+    context: LaunchContext, jhe_url: str | None = None
+) -> JupyterHealthClient:
     """Return a JupyterHealthClient for this launch.
 
     The JHE token is always minted from the SMART launch by exchanging the EHR

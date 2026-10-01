@@ -14,8 +14,12 @@ c.ServerApp.jpserver_extensions = {  # noqa: F821
 
 # --- SMART on FHIR launch (jupyter-smart-on-fhir) ---
 # client_id/scopes come from .env; fallbacks are neutral placeholders. Public client + PKCE.
-c.SMARTExtensionApp.client_id = os.environ.get("SMART_CLIENT_ID", "00000000-0000-0000-0000-000000000000")  # noqa: F821
-c.SMARTExtensionApp.scopes = os.environ.get("SMART_SCOPES", "openid fhirUser launch patient/*.read").split()  # noqa: F821
+c.SMARTExtensionApp.client_id = os.environ.get(
+    "SMART_CLIENT_ID", "00000000-0000-0000-0000-000000000000"
+)
+c.SMARTExtensionApp.scopes = os.environ.get(
+    "SMART_SCOPES", "openid fhirUser launch patient/*.read"
+).split()
 
 # --- Reverse proxy / https fronting ---
 # Behind an https proxy or tunnel (fly.io, cloudflared, ngrok) the OAuth
@@ -44,6 +48,7 @@ c.ServerApp.default_url = "/voila/render/dashboard.ipynb"  # noqa: F821
 # Default frame-ancestors 'self' blocks EHR embedding; allow the configured origin(s).
 c.ServerApp.tornado_settings = {  # noqa: F821
     "headers": {
-        "Content-Security-Policy": "frame-ancestors 'self' " + os.environ.get("EHR_IFRAME_ORIGIN", "https://app.medplum.com")
+        "Content-Security-Policy": "frame-ancestors 'self' "
+        + os.environ.get("EHR_IFRAME_ORIGIN", "https://app.medplum.com")
     }
 }

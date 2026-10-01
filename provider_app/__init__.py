@@ -1,4 +1,5 @@
 """Bridge between SMART launch context and JupyterHealth Exchange data."""
+
 from dotenv import load_dotenv
 
 # Load .env on import so the data layer reads your .env config (JHE_URL,
