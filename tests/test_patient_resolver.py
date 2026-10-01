@@ -1,4 +1,5 @@
 import pytest
+
 from provider_app import patient_resolver
 
 
@@ -18,13 +19,21 @@ def test_resolve_patient_matches_singular_identifier():
 
 def test_resolve_patient_matches_identifiers_array():
     # current JHE schema: an `identifiers` array of {system, value}
-    client = FakeClient([
-        {"id": 7, "identifiers": [{"system": "other", "value": "X"}]},
-        {"id": 42, "identifiers": [
-            {"system": "https://openwearables.io/ns/patient-id", "value": "abc"},
-            {"system": "urn:oid:1.2.3.4", "value": "MRN-1"},
-        ]},
-    ])
+    client = FakeClient(
+        [
+            {"id": 7, "identifiers": [{"system": "other", "value": "X"}]},
+            {
+                "id": 42,
+                "identifiers": [
+                    {
+                        "system": "https://openwearables.io/ns/patient-id",
+                        "value": "abc",
+                    },
+                    {"system": "urn:oid:1.2.3.4", "value": "MRN-1"},
+                ],
+            },
+        ]
+    )
     assert patient_resolver.resolve_patient("MRN-1", client=client) == 42
 
 

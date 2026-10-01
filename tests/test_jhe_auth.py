@@ -1,4 +1,5 @@
 import pytest
+
 from provider_app import jhe_auth
 from provider_app.launch_context import LaunchContext
 
@@ -22,6 +23,7 @@ class FakeResponse:
     def raise_for_status(self):
         if self.status_code >= 400:
             import requests
+
             raise requests.HTTPError("token exchange failed")
 
     def json(self):
@@ -55,8 +57,11 @@ def test_exchange_token_issuer_override(monkeypatch):
     monkeypatch.setenv("JHE_TRUSTED_ISS", "https://trusted.example.org/fhir")
     seen = {}
     monkeypatch.setattr(
-        jhe_auth.requests, "post",
-        lambda url, data=None, **kw: seen.update(data) or FakeResponse({"access_token": "t"}),
+        jhe_auth.requests,
+        "post",
+        lambda url, data=None, **kw: (
+            seen.update(data) or FakeResponse({"access_token": "t"})
+        ),
     )
 
     jhe_auth.exchange_token(_context())
@@ -67,7 +72,9 @@ def test_exchange_token_issuer_override(monkeypatch):
 def test_exchange_token_raises_on_failure(monkeypatch):
     monkeypatch.setenv("JHE_URL", "https://jhe.example.org")
     monkeypatch.setattr(
-        jhe_auth.requests, "post", lambda url, data=None, **kw: FakeResponse({}, ok=False)
+        jhe_auth.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse({}, ok=False),
     )
     with pytest.raises(jhe_auth.TokenExchangeError):
         jhe_auth.exchange_token(_context())
@@ -78,7 +85,9 @@ def test_client_for_launch_always_exchanges(monkeypatch):
     # token via the id_token exchange (RFC 8693).
     monkeypatch.setenv("JHE_URL", "https://jhe.example.org")
     monkeypatch.setattr(
-        jhe_auth.requests, "post", lambda url, data=None, **kw: FakeResponse({"access_token": "minted"})
+        jhe_auth.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse({"access_token": "minted"}),
     )
 
     client = jhe_auth.client_for_launch(_context())
@@ -90,16 +99,26 @@ def test_exchange_token_posts_id_token(monkeypatch):
     captured = {}
 
     class _Resp:
-        def raise_for_status(self): pass
-        def json(self): return {"access_token": "jhe-token"}
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"access_token": "jhe-token"}
 
     def fake_post(url, data=None, **kw):
         captured.update(data)
         return _Resp()
 
     monkeypatch.setattr(jhe_auth.requests, "post", fake_post)
-    ctx = type("Ctx", (), {"id_token": "the-id-token", "access_token": "x",
-                           "fhir_base": "https://ehr.example.org/fhir"})()
+    ctx = type(
+        "Ctx",
+        (),
+        {
+            "id_token": "the-id-token",
+            "access_token": "x",
+            "fhir_base": "https://ehr.example.org/fhir",
+        },
+    )()
     token = jhe_auth.exchange_token(ctx, "https://jhe.example")
     assert token == "jhe-token"
     assert captured["subject_token"] == "the-id-token"

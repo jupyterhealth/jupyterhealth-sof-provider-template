@@ -3,11 +3,12 @@
 Returns one tidy pandas DataFrame per requested data type (the OMH types are
 heterogeneous, so we keep them separate rather than forcing one schema).
 """
+
 from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from jupyterhealth_client import Code, JupyterHealthClient
@@ -67,7 +68,7 @@ def _code_string(code: object) -> str:
     return str(getattr(code, "value", code))
 
 
-def _filter_dates(df: pd.DataFrame, start: Optional[str], end: Optional[str]) -> pd.DataFrame:
+def _filter_dates(df: pd.DataFrame, start: str | None, end: str | None) -> pd.DataFrame:
     time_column = next((c for c in _TIME_COLUMNS if c in df.columns), None)
     if df.empty or time_column is None:
         return df
@@ -84,9 +85,9 @@ def _filter_dates(df: pd.DataFrame, start: Optional[str], end: Optional[str]) ->
 def fetch(
     ctx,
     types: list[str],
-    client: Optional[Any] = None,
-    start: Optional[str] = None,
-    end: Optional[str] = None,
+    client: Any | None = None,
+    start: str | None = None,
+    end: str | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Resolve the launched patient in JHE and return {data_type: tidy DataFrame}.
 
@@ -103,7 +104,9 @@ def fetch(
         client = JupyterHealthClient()
     patient_id = patient_resolver.resolve_patient(ctx.patient_mrn, client=client)
     jhe_patient = client.get_patient(patient_id)
-    identity.assert_same_patient(ctx, jhe_patient)  # raises IdentityMismatch / IdentityUnverified
+    identity.assert_same_patient(
+        ctx, jhe_patient
+    )  # raises IdentityMismatch / IdentityUnverified
 
     # Fetch the patient's observations ONCE, unfiltered, then split by code in pandas.
     # Why not let the server filter per type with `code=`:
@@ -113,7 +116,9 @@ def fetch(
     #   2. Each per-type call also risks the API's default 2000-row truncation.
     # A single high-limit unfiltered call + client-side split is robust to both. The
     # resulting per-type frame is identical to a (working) server-filtered fetch.
-    all_obs = client.list_observations_df(patient_id=patient_id, limit=_OBSERVATION_FETCH_LIMIT)
+    all_obs = client.list_observations_df(
+        patient_id=patient_id, limit=_OBSERVATION_FETCH_LIMIT
+    )
     code_col = next((c for c in _CODE_COLUMNS if c in all_obs.columns), None)
 
     out: dict[str, pd.DataFrame] = {}
@@ -122,6 +127,10 @@ def fetch(
         if all_obs.empty or code_col is None:
             df = all_obs.copy()  # nothing to split on; pass through (e.g. empty result)
         else:
-            df = all_obs[all_obs[code_col].astype(str) == wanted].dropna(axis=1, how="all").copy()
+            df = (
+                all_obs[all_obs[code_col].astype(str) == wanted]
+                .dropna(axis=1, how="all")
+                .copy()
+            )
         out[data_type] = _filter_dates(df, start, end)
     return out

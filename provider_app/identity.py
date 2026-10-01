@@ -10,9 +10,11 @@ We compare family name + birth date only. Given names vary legitimately (nicknam
 e.g. May/Mary) and would cause false mismatches; family name + DOB is a robust,
 low-false-positive check for "same person" in this single-MRN lookup context.
 """
+
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import requests
 
@@ -29,7 +31,7 @@ class IdentityMismatch(IdentityError):
     """The JHE record does not match the launched EHR patient."""
 
 
-def ehr_identity(ctx, http_get: Optional[Callable[..., Any]] = None) -> tuple[str, str]:
+def ehr_identity(ctx, http_get: Callable[..., Any] | None = None) -> tuple[str, str]:
     """Return the launched EHR patient's (family_name_lower, birth_date).
 
     Reads ``{ctx.fhir_base}/Patient/{ctx.fhir_patient_id}`` with the SMART access
@@ -73,7 +75,9 @@ def ehr_identity(ctx, http_get: Optional[Callable[..., Any]] = None) -> tuple[st
     return family.lower(), birth_date
 
 
-def assert_same_patient(ctx, jhe_patient: dict, http_get: Optional[Callable[..., Any]] = None) -> None:
+def assert_same_patient(
+    ctx, jhe_patient: dict, http_get: Callable[..., Any] | None = None
+) -> None:
     """Raise unless the JHE record is the same person as the launched EHR patient.
 
     Compares family name (case-insensitive) + birth date. Given name is NOT compared

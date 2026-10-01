@@ -4,13 +4,15 @@ All access to the SMART token goes through this module so the storage strategy
 (currently the single global token file written by jupyter-smart-on-fhir) can be
 swapped for per-session storage later without touching the notebook or data layer.
 """
+
 from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import requests
 
@@ -57,7 +59,7 @@ def _extract_mrn(patient_resource: dict[str, Any], mrn_system: str) -> str:
     )
 
 
-def current(http_get: Optional[Callable[..., Any]] = None) -> LaunchContext:
+def current(http_get: Callable[..., Any] | None = None) -> LaunchContext:
     """Return the LaunchContext for the active SMART session.
 
     Raises LaunchContextError if the token is missing/incomplete or the MRN
@@ -72,7 +74,9 @@ def current(http_get: Optional[Callable[..., Any]] = None) -> LaunchContext:
     token = data.get("token") or {}
     access_token = token.get("access_token")
     id_token = token.get("id_token")
-    fhir_patient_id = token.get("patient")  # SMART token 'patient' field is the EHR patient resource ID
+    fhir_patient_id = token.get(
+        "patient"
+    )  # SMART token 'patient' field is the EHR patient resource ID
     fhir_base = data.get("fhir_url")
     if not access_token or not id_token or not fhir_patient_id or not fhir_base:
         raise LaunchContextError(
@@ -82,7 +86,9 @@ def current(http_get: Optional[Callable[..., Any]] = None) -> LaunchContext:
 
     mrn_system = os.environ.get("MRN_IDENTIFIER_SYSTEM")
     if not mrn_system:
-        raise LaunchContextError("MRN_IDENTIFIER_SYSTEM environment variable is not set.")
+        raise LaunchContextError(
+            "MRN_IDENTIFIER_SYSTEM environment variable is not set."
+        )
 
     url = f"{fhir_base.rstrip('/')}/Patient/{fhir_patient_id}"
     try:

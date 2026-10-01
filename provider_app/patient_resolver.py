@@ -4,18 +4,20 @@ Default strategy: JHE stores the MRN as the patient's external identifier, so we
 look the patient up by external_id. Override via set_resolver() for institutions
 whose mapping differs.
 """
+
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
-_override: Optional[Callable[[str, Any], int]] = None
+_override: Callable[[str, Any], int] | None = None
 
 
 class PatientNotInJHE(Exception):
     """Raised when no JHE patient matches the given MRN."""
 
 
-def set_resolver(resolver: Optional[Callable[[str, Any], int]]) -> None:
+def set_resolver(resolver: Callable[[str, Any], int] | None) -> None:
     """Install a custom MRN -> jhe_patient_id resolver, or None to reset to default."""
     global _override
     _override = resolver
@@ -38,9 +40,7 @@ def _default_resolver(mrn: str, client: Any) -> int:
     for patient in client.list_patients():
         if _has_external_id(patient, mrn):
             return patient["id"]
-    raise PatientNotInJHE(
-        f"No JupyterHealth patient found for MRN {mrn!r}."
-    )
+    raise PatientNotInJHE(f"No JupyterHealth patient found for MRN {mrn!r}.")
 
 
 def resolve_patient(mrn: str, client: Any) -> int:
