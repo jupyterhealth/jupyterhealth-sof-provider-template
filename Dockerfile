@@ -13,3 +13,4 @@ EXPOSE 8888
 
 CMD ["jupyter", "server", "--ip=0.0.0.0", "--port=8888", "--no-browser", \
      "--allow-root", "--config=/app/jupyter_server_config.py"]
+LABEL org.opencontainers.image.source https://github.com/jupyterhealth/jupyterhealth-sof-provider-template
