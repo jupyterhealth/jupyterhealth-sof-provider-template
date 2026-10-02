@@ -77,7 +77,7 @@ The resolver matches on identifier **value** only, so the EHR and JHE identifier
 ```
 JHE_URL=https://jhe.fly.dev
 MRN_IDENTIFIER_SYSTEM=<the system you stamped on the Medplum patient>
-# JHE_TRUSTED_ISS=    # set only if JHE's trusted issuer differs from the EHR FHIR base
+JHE_TRUSTED_ISS=https://api.medplum.com/    # Medplum's id_token iss differs from its FHIR base
 ```
 The app mints its JHE token at launch via the id_token exchange, so there is no token to set.
 
@@ -86,6 +86,10 @@ The app mints its JHE token at launch via the id_token exchange, so there is no 
 ```
 JHE_URL=https://jhe.fly.dev
 SMART_CLIENT_ID=<your Medplum SMART client_id>
+# Launch iss (FHIR base) allowed to open the app; the server refuses to start without it
+SMART_ALLOWED_ISSUERS=https://api.medplum.com/fhir/R4
+# Medplum's id_token iss differs from its FHIR base, so tell the JHE exchange which to use
+JHE_TRUSTED_ISS=https://api.medplum.com/
 EHR_IFRAME_ORIGIN=https://app.medplum.com            # unused by Medplum (redirect launch); only iframe EHRs need it
 MRN_IDENTIFIER_SYSTEM=<same system as the Medplum patient identifier>
 ```

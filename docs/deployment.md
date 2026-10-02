@@ -24,6 +24,10 @@ the next run. Values:
   | Epic sandbox | `https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4` | `https://fhir.epic.com/interconnect-fhir-oauth/oauth2` |
   | Medplum | `https://api.medplum.com/fhir/R4` | `https://api.medplum.com/` |
   | Your Epic | your production R4 base, from your Epic admin | your Epic OIDC issuer |
+
+  Because JHE validates the id_token issuer, deployments whose EHR id_token `iss` differs
+  from the FHIR base (Epic, Medplum) must also set `JHE_TRUSTED_ISS` in `.env` to the
+  right-hand column value.
 - `EHR_IFRAME_ORIGIN` — only used by EHRs that **iframe-embed** the app (e.g. Epic); the CSP
   allows that origin to embed it. Redirect-style launches (Medplum) ignore it — see below.
 - `MRN_IDENTIFIER_SYSTEM` — the EHR `Patient.identifier` system that holds the MRN
@@ -42,7 +46,20 @@ Then complete a SMART launch from your EHR test environment (or MedPlum dev inst
 pointed at `https://<host>/smart-on-fhir/launch`.
 
 ## Deploy
-A `Dockerfile` and `fly.toml.example` are provided. Any container host works.
+A `Dockerfile` and `fly.toml.example` are provided. Any container host works. On fly.io:
+
+1. Set the issuer allowlist **before** deploying. An app upgraded without it restart-loops
+   on `allowed_issuers must list at least one EHR issuer`:
+   ```
+   fly secrets set -a <app> SMART_ALLOWED_ISSUERS="<FHIR base(s)>"
+   ```
+2. Deploy on exactly one machine. Sessions live in server memory, so a second machine makes
+   callbacks fail with "launch expired" 400s that look like cookie blocking:
+   ```
+   fly deploy --ha=false
+   ```
+   (or, for an app that already has two machines, `fly scale count 1`).
+3. A deploy or restart ends every session; clinicians relaunch from the chart.
 
 ## The iframe / CSP gotcha — only for iframe-embedding EHRs (e.g. Epic)
 **This applies only if your EHR embeds the app in an iframe** (e.g. Epic in Hyperspace).
@@ -74,8 +91,9 @@ The EHR launch is the only way in; there is no separate login.
   kernel Voilà started for it. It **cannot run code**: the kernel connection drops
   `execute_request` (only widget comm messages pass), so the only code that ever runs is
   the committed notebook. It cannot list or attach to other sessions' kernels, use the
-  file API, read the notebook source, or open a terminal (terminals are disabled). In the
-  Docker image the server runs as an unprivileged user with the app directory read-only.
+  file API (Voilà's tree route still lists notebook names), read the notebook source, or
+  open a terminal (terminals are disabled). In the Docker image the server runs as an
+  unprivileged user with the app directory read-only.
   Locally (`make run`) the server root is the project directory, so any notebook in it is
   renderable by a launched session; the Docker image narrows the root to `/app/notebooks`
   via `NOTEBOOK_DIR`.
@@ -85,6 +103,9 @@ The EHR launch is the only way in; there is no separate login.
   another session's kernel id (random, never listed) could stop that kernel: a nuisance,
   not a data exposure. (3) All kernels still run as one OS user, so one server is still
   one trust domain by design.
+- **Sizing.** Each rendered dashboard holds a kernel (~100 MB+) until the tab's shutdown
+  beacon fires or idle culling (1 h) reaps it; a 1 GB VM supports only a handful of
+  concurrent sessions.
 - **Trust boundary.** **One standalone server is one trust domain**: suitable for a single
   organization's clinic team or a pilot, where every launcher is an authorized user of the
   same EHR and the EHR audits each launch. For multiple organizations or large user
@@ -104,4 +125,5 @@ The EHR launch is the only way in; there is no separate login.
   open in a new window, or allowing cookies for the app's site. Partitioned cookies:
   Chrome/Edge 114+, Firefox 141+, Safari 26.2+. Always serve the app over **https**.
 - **Single machine.** Sessions live in server memory: run one machine (`fly scale count 1`),
-  and note that a deploy or restart ends every session (relaunch from the chart).
+  and note that a deploy or restart ends every session (relaunch from the chart). See
+  [Deploy](#deploy) for the exact commands.
