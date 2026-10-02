@@ -68,7 +68,7 @@ def _run_dashboard(tmp_path, monkeypatch, jhe_client):
     from provider_app import jhe_auth, launch_context
 
     # Fake SMART token file + env
-    token_file = tmp_path / "smart_token.json"
+    token_file = tmp_path / ("t" * 32 + ".json")
     token_file.write_text(
         json.dumps(
             {
@@ -80,10 +80,16 @@ def _run_dashboard(tmp_path, monkeypatch, jhe_client):
                 },
                 "fhir_url": "https://fhir.test",
                 "smart_config": {},
+                "expires_at": 4_000_000_000,
             }
         )
     )
-    monkeypatch.setenv("SMART_TOKEN_FILE", str(token_file))
+    import base64
+
+    sid = "t" * 32
+    b = base64.b64encode(sid.encode()).decode()
+    monkeypatch.setenv("SMART_TOKEN_DIR", str(tmp_path))
+    monkeypatch.setenv("HTTP_COOKIE", f'smart-session="2|1:0|10:1700000000|13:smart-session|{len(b)}:{b}|sig"')
     monkeypatch.setenv("MRN_IDENTIFIER_SYSTEM", "urn:mrn")
     monkeypatch.setenv("JHE_URL", "https://jhe.test")
     monkeypatch.setenv("MPLBACKEND", "Agg")  # keep matplotlib headless

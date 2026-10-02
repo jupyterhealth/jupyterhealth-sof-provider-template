@@ -1,8 +1,8 @@
 """Read SMART launch context (token + patient MRN) for the current session.
 
-All access to the SMART token goes through this module so the storage strategy
-(currently the single global token file written by jupyter-smart-on-fhir) can be
-swapped for per-session storage later without touching the notebook or data layer.
+All access to the SMART token goes through this module. The token belongs to the browser
+session that rendered this kernel: Voilà passes the request's Cookie header into the
+kernel env and jupyter_smart_on_fhir.session.load_token() resolves that session's file.
 """
 
 from __future__ import annotations
@@ -11,10 +11,10 @@ import json
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import requests
+from jupyter_smart_on_fhir import session as smart_session
 
 
 class LaunchContextError(Exception):
@@ -30,23 +30,14 @@ class LaunchContext:
     patient_mrn: str
 
 
-def _token_file_path() -> Path:
-    path = os.environ.get("SMART_TOKEN_FILE")
-    if not path:
-        raise LaunchContextError(
-            "SMART_TOKEN_FILE is not set; the SMART launch has not completed."
-        )
-    return Path(path)
-
-
 def _read_token() -> dict[str, Any]:
-    path = _token_file_path()
+    """This browser's token, resolved from the session cookie Voilà passed into the kernel."""
     try:
-        return json.loads(path.read_text())
-    except FileNotFoundError as e:
-        raise LaunchContextError(f"Token file not found at {path}") from e
+        return smart_session.load_token()
+    except smart_session.SMARTSessionError as e:
+        raise LaunchContextError(str(e)) from e
     except json.JSONDecodeError as e:
-        raise LaunchContextError(f"Token file at {path} is not valid JSON") from e
+        raise LaunchContextError("Session token file is not valid JSON") from e
 
 
 def _extract_mrn(patient_resource: dict[str, Any], mrn_system: str) -> str:
