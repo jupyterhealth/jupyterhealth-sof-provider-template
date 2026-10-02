@@ -134,7 +134,7 @@ def _run_dashboard(tmp_path, monkeypatch, jhe_client):
     namespace: dict = {}
     for cell in nb.cells:
         if cell.cell_type == "code":
-            exec(compile(cell.source, "<dashboard-cell>", "exec"), namespace)
+            exec(compile(cell.source, "<dashboard-cell>", "exec"), namespace)  # noqa: S102 - runs our own notebook cells in-process
     return namespace
 
 
