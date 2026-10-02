@@ -89,7 +89,10 @@ def _run_dashboard(tmp_path, monkeypatch, jhe_client):
     sid = "t" * 32
     b = base64.b64encode(sid.encode()).decode()
     monkeypatch.setenv("SMART_TOKEN_DIR", str(tmp_path))
-    monkeypatch.setenv("HTTP_COOKIE", f'smart-session="2|1:0|10:1700000000|13:smart-session|{len(b)}:{b}|sig"')
+    monkeypatch.setenv(
+        "HTTP_COOKIE",
+        f'smart-session="2|1:0|10:1700000000|13:smart-session|{len(b)}:{b}|sig"',
+    )
     monkeypatch.setenv("MRN_IDENTIFIER_SYSTEM", "urn:mrn")
     monkeypatch.setenv("JHE_URL", "https://jhe.test")
     monkeypatch.setenv("MPLBACKEND", "Agg")  # keep matplotlib headless

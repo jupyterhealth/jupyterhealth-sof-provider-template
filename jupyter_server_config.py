@@ -33,7 +33,9 @@ c.SMARTExtensionApp.scopes = os.environ.get(
 # Only these EHRs may launch the app (the launch `iss`). Required: the server refuses to
 # start when empty. Launch `iss` = FHIR base URL; NOT JHE's auth.sof.trusted_issuers (that
 # is the id_token issuer).
-c.SMARTExtensionApp.allowed_issuers = os.environ.get("SMART_ALLOWED_ISSUERS", "").split()
+c.SMARTExtensionApp.allowed_issuers = os.environ.get(
+    "SMART_ALLOWED_ISSUERS", ""
+).split()
 
 # --- Reverse proxy / https fronting ---
 # Behind an https proxy or tunnel (fly.io, cloudflared, ngrok) the OAuth
@@ -93,5 +95,10 @@ c.ServerApp.tornado_settings = {  # noqa: F821
     "extra_log_scrub_param_keys": ["smart_session", "launch"],
     # Voilà's unload beacon reads _xsrf from document.cookie and POSTs it, so the cookie must be
     # JS-readable and allowed in the EHR iframe (tornado cannot set Partitioned; the session reaper covers that).
-    "xsrf_cookie_kwargs": {"path": "/", "secure": True, "samesite": "None", "httponly": False},
+    "xsrf_cookie_kwargs": {
+        "path": "/",
+        "secure": True,
+        "samesite": "None",
+        "httponly": False,
+    },
 }

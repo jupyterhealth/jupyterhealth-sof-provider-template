@@ -13,12 +13,15 @@ def _signed_cookie(sid=SID, name="smart-session"):
     return f'{name}="2|1:0|10:1700000000|{len(name)}:{name}|{len(b)}:{b}|sig"'
 
 
-def _write_token(tmp_path, patient="Patient123", token=None, fhir_url="https://fhir.example.org"):
+def _write_token(
+    tmp_path, patient="Patient123", token=None, fhir_url="https://fhir.example.org"
+):
     """Write a per-session token file; return the env the Voilà kernel would see."""
     (tmp_path / f"{SID}.json").write_text(
         json.dumps(
             {
-                "token": token or {
+                "token": token
+                or {
                     "access_token": "ABC",
                     "id_token": "ID-TOKEN",
                     "patient": patient,
@@ -30,7 +33,10 @@ def _write_token(tmp_path, patient="Patient123", token=None, fhir_url="https://f
             }
         )
     )
-    return {"SMART_TOKEN_DIR": str(tmp_path), "HTTP_COOKIE": f"_xsrf=1; {_signed_cookie()}"}
+    return {
+        "SMART_TOKEN_DIR": str(tmp_path),
+        "HTTP_COOKIE": f"_xsrf=1; {_signed_cookie()}",
+    }
 
 
 def _set_env(monkeypatch, env):
@@ -83,7 +89,9 @@ def test_current_reads_token_and_mrn(tmp_path, monkeypatch):
 def test_unknown_session_raises(monkeypatch, tmp_path):
     monkeypatch.setenv("SMART_TOKEN_DIR", str(tmp_path))
     monkeypatch.setenv("HTTP_COOKIE", _signed_cookie("z" * 32))
-    with pytest.raises(launch_context.LaunchContextError, match="expired or not launched"):
+    with pytest.raises(
+        launch_context.LaunchContextError, match="expired or not launched"
+    ):
         launch_context.current()
 
 
@@ -156,7 +164,11 @@ def test_launch_context_exposes_id_token(tmp_path, monkeypatch):
         monkeypatch,
         _write_token(
             tmp_path,
-            token={"access_token": "ehr-access", "id_token": "ehr-id-token", "patient": "p1"},
+            token={
+                "access_token": "ehr-access",
+                "id_token": "ehr-id-token",
+                "patient": "p1",
+            },
             fhir_url="https://ehr.example.org/fhir",
         ),
     )
