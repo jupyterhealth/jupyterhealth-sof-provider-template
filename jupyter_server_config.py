@@ -66,9 +66,9 @@ c.MappingKernelManager.allowed_message_types = [  # noqa: F821
     "kernel_info_request",
     "shutdown_request",
 ]
-# Kernels outlive their session's cookie; reap idle ones.
-c.MappingKernelManager.cull_idle_timeout = 3600  # noqa: F821
-c.MappingKernelManager.cull_interval = 300  # noqa: F821
+# The library shuts down a session's kernels when the session ends; culling idle ones is the backstop.
+c.MappingKernelManager.cull_idle_timeout = 600  # noqa: F821
+c.MappingKernelManager.cull_interval = 60  # noqa: F821
 c.MappingKernelManager.cull_connected = True  # noqa: F821
 
 # --- Voilà (renders dashboard.ipynb as the provider-facing app) ---
@@ -91,4 +91,7 @@ c.ServerApp.tornado_settings = {  # noqa: F821
     },
     # Mask the session id and EHR launch token in access-log query strings.
     "extra_log_scrub_param_keys": ["smart_session", "launch"],
+    # Voilà's unload beacon reads _xsrf from document.cookie and POSTs it, so the cookie must be
+    # JS-readable and allowed in the EHR iframe (tornado cannot set Partitioned; the session reaper covers that).
+    "xsrf_cookie_kwargs": {"path": "/", "secure": True, "samesite": "None", "httponly": False},
 }

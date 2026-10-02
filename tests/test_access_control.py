@@ -25,8 +25,7 @@ ISS = "https://ehr.example/fhir"
 COOKIE = "smart-session"
 
 
-@pytest.fixture
-def jp_server_config(tmp_path, jp_root_dir, monkeypatch):
+def load_real_config(tmp_path, jp_root_dir, monkeypatch):
     # The real config calls load_dotenv(); it never overrides variables already set, so set
     # ours first. JUPYTER_PATH lets Voilà find its templates under pytest-jupyter.
     monkeypatch.setenv("SMART_ALLOWED_ISSUERS", ISS)
@@ -34,9 +33,15 @@ def jp_server_config(tmp_path, jp_root_dir, monkeypatch):
     monkeypatch.setenv("NOTEBOOK_DIR", str(jp_root_dir))
     monkeypatch.setenv("JUPYTER_PATH", os.path.join(sys.prefix, "share", "jupyter"))
     c = PyFileConfigLoader("jupyter_server_config.py", path=str(PROJECT_ROOT)).load_config()
-    c.ServerApp.disable_check_xsrf = True
     c.SMARTExtensionApp.token_dir = str(tmp_path / "sessions")
     c.SMARTExtensionApp.token_file = str(tmp_path / "legacy.json")
+    return c
+
+
+@pytest.fixture
+def jp_server_config(tmp_path, jp_root_dir, monkeypatch):
+    c = load_real_config(tmp_path, jp_root_dir, monkeypatch)
+    c.ServerApp.disable_check_xsrf = True
     return c
 
 
@@ -51,6 +56,7 @@ def notebook(jp_root_dir, tmp_path):
         "print('rendered')"
     ))
     nbformat.write(nb, jp_root_dir / "dashboard.ipynb")
+    (jp_root_dir / "note.txt").write_text("not for the browser")  # not in Voilà's default denylist
     return out
 
 
@@ -74,8 +80,13 @@ def cookie_header(response) -> str:
     return f"{COOKIE}={jar[COOKIE].coded_value}"
 
 
-async def complete_launch(jp_fetch):
-    l = await jp_fetch(launch_path, params={"iss": ISS, "launch": "L1"}, follow_redirects=False, raise_error=False)
+async def complete_launch(jp_fetch, prior_cookie=None, responses=None):
+    """Launch, login and callback; returns (cookie, session id). `prior_cookie` is the
+    browser's existing session cookie, which a relaunch replaces; `responses` collects
+    the three responses."""
+    headers = {"Cookie": prior_cookie} if prior_cookie else {}
+    l = await jp_fetch(launch_path, params={"iss": ISS, "launch": "L1"}, headers=headers,
+                       follow_redirects=False, raise_error=False)
     assert l.code == 302, l.body
     cookie = cookie_header(l)
     q = dict(parse_qsl(urlparse(l.headers["Location"]).query))
@@ -85,6 +96,8 @@ async def complete_launch(jp_fetch):
     cb = await jp_fetch(callback_path, params={"code": "C1", "state": state}, headers={"Cookie": cookie},
                         follow_redirects=False, raise_error=False)
     assert cb.code == 302, cb.body
+    if responses is not None:
+        responses.extend([l, lg, cb])
     return cookie, dict(parse_qsl(urlparse(cb.headers["Location"]).query))["smart_session"]
 
 
@@ -96,10 +109,11 @@ def test_real_config_wires_everything(jp_serverapp, jp_server_config, jp_root_di
     assert jp_serverapp.allow_unauthenticated_access is False
     assert jp_serverapp.reraise_server_extension_failures is True
     assert jp_serverapp.terminals_enabled is False
+    assert jp_serverapp.trust_xheaders is True
     assert jp_serverapp.web_app.settings["smart_allowed_issuers"] == {ISS}
     km = jp_serverapp.kernel_manager
-    assert km.cull_idle_timeout == 3600 and km.cull_connected is True
-    assert km.cull_interval == 300
+    assert km.cull_idle_timeout == 600 and km.cull_connected is True
+    assert km.cull_interval == 60
     assert km.allowed_message_types == [
         "comm_open", "comm_close", "comm_msg", "comm_info_request", "kernel_info_request", "shutdown_request",
     ]
@@ -111,7 +125,8 @@ def test_real_config_wires_everything(jp_serverapp, jp_server_config, jp_root_di
     assert not (PROJECT_ROOT / "voila.json").exists()  # it would re-apply file_allowlist after this config
     text = (PROJECT_ROOT / "jupyter_server_config.py").read_text()
     assert 'ServerApp.token = ""' not in text and 'ServerApp.password = ""' not in text
-    assert jp_serverapp.web_app.settings["extra_log_scrub_param_keys"] == ["smart_session", "launch"]
+    # The library appends its own copies of these keys; ours must be among them.
+    assert {"smart_session", "launch"} <= set(jp_serverapp.web_app.settings["extra_log_scrub_param_keys"])
 
 
 def test_root_dir_defaults_to_config_directory(monkeypatch):
@@ -131,10 +146,13 @@ async def test_render_without_session_is_refused_before_kernel_start(jp_fetch, j
 
 
 async def test_notebook_source_is_not_served_to_anyone(jp_fetch, notebook):
-    assert (await jp_fetch("voila", "files", "dashboard.ipynb", raise_error=False)).code in (403, 404)
+    # note.txt is outside Voilà's .ipynb denylist, so refusing it proves file_allowlist=[].
+    for name in ("dashboard.ipynb", "note.txt"):
+        assert (await jp_fetch("voila", "files", name, raise_error=False)).code in (403, 404), name
     cookie, _ = await complete_launch(jp_fetch)
-    r = await jp_fetch("voila", "files", "dashboard.ipynb", headers={"Cookie": cookie}, raise_error=False)
-    assert r.code in (403, 404)
+    for name in ("dashboard.ipynb", "note.txt"):
+        r = await jp_fetch("voila", "files", name, headers={"Cookie": cookie}, raise_error=False)
+        assert r.code in (403, 404), name
 
 
 def _msg(msg_type, content=None):
@@ -200,6 +218,22 @@ async def test_render_with_session_runs_one_kernel_that_reads_its_own_token(
         await jp_ws_fetch("api", "kernels", kid, "channels", headers={"Cookie": other_cookie})
     assert exc.value.code == 403
     assert len(list(jp_serverapp.kernel_manager.list_kernel_ids())) == 1  # nothing extra started
+
+
+async def test_relaunch_from_same_browser_shuts_down_old_kernel(jp_fetch, jp_serverapp, notebook):
+    cookie, sid = await complete_launch(jp_fetch)
+    r = await jp_fetch("voila", "render", "dashboard.ipynb", params={"smart_session": sid},
+                       headers={"Cookie": cookie}, raise_error=False, request_timeout=120)
+    assert r.code == 200, r.body[:500]
+    km = jp_serverapp.kernel_manager
+    (old_kid,) = list(km.list_kernel_ids())
+
+    await complete_launch(jp_fetch, prior_cookie=cookie)  # replaces (deletes) the old session
+    for _ in range(50):
+        if old_kid not in km.list_kernel_ids():
+            break
+        await asyncio.sleep(0.1)
+    assert old_kid not in km.list_kernel_ids()
 
 
 async def test_render_url_for_another_session_fails_closed(jp_fetch, jp_serverapp, notebook):

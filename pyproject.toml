@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 dependencies = [
-    "jupyter-smart-on-fhir @ git+https://github.com/surfdoc/jupyter-smart-on-fhir@5cdba9747541a21fb0884ca58ca7b7f526cecb51",
+    "jupyter-smart-on-fhir @ git+https://github.com/surfdoc/jupyter-smart-on-fhir@88b18dba10dd282919eebc1bcd2ff2efc38b75cd",
     "jupyterhealth-client>=0.2.0",
     "voila>=0.5",
     "jupyter-server>=2.13",
