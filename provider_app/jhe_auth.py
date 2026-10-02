@@ -65,7 +65,11 @@ def exchange_token(context: LaunchContext, jhe_url: str | None = None) -> str:
         response = requests.post(f"{url}/o/token-exchange", data=data)
         response.raise_for_status()
     except requests.RequestException as e:
-        raise TokenExchangeError(f"JHE token exchange failed: {e}") from e
+        try:
+            msg = str(e.response.json())
+        except Exception:
+            msg = str(e)
+        raise TokenExchangeError(f"JHE token exchange failed: {msg}") from e
     return response.json()["access_token"]
 
 
