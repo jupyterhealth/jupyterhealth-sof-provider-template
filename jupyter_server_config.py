@@ -33,11 +33,9 @@ if os.environ.get("SMART_REDIRECT_URI"):
     c.SMARTExtensionApp.redirect_uri = os.environ["SMART_REDIRECT_URI"]
 
 # --- Authentication ---
-# The SMART/OAuth flow IS the auth layer. Disable Jupyter's own token/password login, else
-# the EHR launch (which carries no Jupyter token) bounces to /login.
-# POC single-session model — see docs/deployment.md before exposing this publicly.
-c.ServerApp.token = ""
-c.ServerApp.password = ""
+# The SMART/OAuth flow IS the auth layer.
+# This authenticator ensures that every Jupyter request is authorized by the SMART launch.
+c.ServerApp.identity_provider_class = "jupyter_smart_on_fhir.server_extension.SMARTIdentityProvider"
 
 # --- Voilà (renders dashboard.ipynb as the provider-facing app) ---
 c.VoilaConfiguration.file_allowlist = ["dashboard.ipynb"]
