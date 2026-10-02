@@ -24,16 +24,16 @@ c.ServerApp.root_dir = os.environ.get(  # noqa: F821
 
 # --- SMART on FHIR launch (jupyter-smart-on-fhir) ---
 # client_id/scopes come from .env; fallbacks are neutral placeholders. Public client + PKCE.
-c.SMARTExtensionApp.client_id = os.environ.get(
+c.SMARTExtensionApp.client_id = os.environ.get(  # noqa: F821
     "SMART_CLIENT_ID", "00000000-0000-0000-0000-000000000000"
 )
-c.SMARTExtensionApp.scopes = os.environ.get(
+c.SMARTExtensionApp.scopes = os.environ.get(  # noqa: F821
     "SMART_SCOPES", "openid fhirUser launch patient/*.read"
 ).split()
 # Only these EHRs may launch the app (the launch `iss`). Required: the server refuses to
 # start when empty. Launch `iss` = FHIR base URL; NOT JHE's auth.sof.trusted_issuers (that
 # is the id_token issuer).
-c.SMARTExtensionApp.allowed_issuers = os.environ.get(
+c.SMARTExtensionApp.allowed_issuers = os.environ.get(  # noqa: F821
     "SMART_ALLOWED_ISSUERS", ""
 ).split()
 
