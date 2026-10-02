@@ -16,8 +16,8 @@ c.ServerApp.terminals_enabled = False  # noqa: F821
 # Extension errors (e.g. an empty issuer allowlist) must stop the server, not silently
 # disable the extension that provides the only authentication.
 c.ServerApp.reraise_server_extension_failures = True  # noqa: F821
-# Only the dashboard notebook lives under root_dir; nothing else is renderable or listable.
-# Docker narrows this to /app/notebooks via NOTEBOOK_DIR; locally the notebook sits beside this file.
+# Docker narrows root_dir to /app/notebooks (only the dashboard); locally it is this directory,
+# and Voilà's tree route lists notebook names to a launched session.
 c.ServerApp.root_dir = os.environ.get(  # noqa: F821
     "NOTEBOOK_DIR", os.path.dirname(os.path.abspath(__file__))
 )
@@ -88,5 +88,7 @@ c.ServerApp.tornado_settings = {  # noqa: F821
     "headers": {
         "Content-Security-Policy": "frame-ancestors 'self' "
         + os.environ.get("EHR_IFRAME_ORIGIN", "https://app.medplum.com")
-    }
+    },
+    # Mask the session id and EHR launch token in access-log query strings.
+    "extra_log_scrub_param_keys": ["smart_session", "launch"],
 }

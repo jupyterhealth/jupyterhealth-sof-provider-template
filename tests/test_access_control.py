@@ -99,6 +99,7 @@ def test_real_config_wires_everything(jp_serverapp, jp_server_config, jp_root_di
     assert jp_serverapp.web_app.settings["smart_allowed_issuers"] == {ISS}
     km = jp_serverapp.kernel_manager
     assert km.cull_idle_timeout == 3600 and km.cull_connected is True
+    assert km.cull_interval == 300
     assert km.allowed_message_types == [
         "comm_open", "comm_close", "comm_msg", "comm_info_request", "kernel_info_request", "shutdown_request",
     ]
@@ -110,6 +111,14 @@ def test_real_config_wires_everything(jp_serverapp, jp_server_config, jp_root_di
     assert not (PROJECT_ROOT / "voila.json").exists()  # it would re-apply file_allowlist after this config
     text = (PROJECT_ROOT / "jupyter_server_config.py").read_text()
     assert 'ServerApp.token = ""' not in text and 'ServerApp.password = ""' not in text
+    assert jp_serverapp.web_app.settings["extra_log_scrub_param_keys"] == ["smart_session", "launch"]
+
+
+def test_root_dir_defaults_to_config_directory(monkeypatch):
+    monkeypatch.delenv("NOTEBOOK_DIR", raising=False)
+    monkeypatch.setenv("SMART_ALLOWED_ISSUERS", ISS)
+    c = PyFileConfigLoader("jupyter_server_config.py", path=str(PROJECT_ROOT)).load_config()
+    assert c.ServerApp.root_dir == str(PROJECT_ROOT)
 
 
 async def test_render_without_session_is_refused_before_kernel_start(jp_fetch, jp_serverapp, notebook):
@@ -157,7 +166,7 @@ async def test_api_without_session_is_refused(jp_fetch, jp_serverapp):
 
 
 async def test_render_with_session_runs_one_kernel_that_reads_its_own_token(
-    jp_fetch, jp_ws_fetch, jp_serverapp, notebook, tmp_path
+    jp_fetch, jp_ws_fetch, jp_serverapp, notebook, tmp_path, caplog
 ):
     cookie, sid = await complete_launch(jp_fetch)
     r = await jp_fetch("voila", "render", "dashboard.ipynb", params={"smart_session": sid},
@@ -180,6 +189,7 @@ async def test_render_with_session_runs_one_kernel_that_reads_its_own_token(
                                               "allow_stdin": False, "stop_on_error": True}))
     assert "execute_reply" not in await _reply_types(ws)
     assert not pwned.exists()
+    assert "which is not allowed" in caplog.text
     ws.close()
 
     # Another authenticated session (a second launch from a different browser) is refused

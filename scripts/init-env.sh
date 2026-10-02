@@ -37,5 +37,9 @@ prompt() {
   prompt MRN_IDENTIFIER_SYSTEM "FHIR Patient.identifier system holding the MRN" "https://example.org/mrn"
 } > .env
 
+if grep -qx 'SMART_ALLOWED_ISSUERS=' .env; then
+  echo "WARNING: SMART_ALLOWED_ISSUERS is empty; the server will refuse to start until you set it in .env"
+fi
+
 echo
 echo "Wrote .env. Confirm JHE trusts your EHR issuer, then run: make run"
