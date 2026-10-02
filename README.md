@@ -50,7 +50,9 @@ or `cp examples/cgm-dashboard.ipynb dashboard.ipynb` for the CGM showcase.
 - `MRN_IDENTIFIER_SYSTEM` — which **`Patient.identifier` system** holds the MRN. Set this
   same system + value on your test patient in the EHR. See `docs/ehr-registration.md` §3.
 - `SMART_SCOPES` — the SMART scopes to request at launch (the default is usually fine).
-- `SMART_ALLOWED_ISSUERS` — **required**: the FHIR base URL of each EHR allowed to launch the app (the launch `iss`), space-separated; **not** JHE's `trusted_issuers`, which is the id_token issuer — see `docs/deployment.md` for the table.
+- `SMART_ALLOWED_ISSUERS` — **required**: the FHIR base URL of each EHR allowed to launch
+  the app (the launch `iss`), space-separated; **not** JHE's `trusted_issuers`, which is the
+  id_token issuer — see `docs/deployment.md` for the table.
 
 **From your JupyterHealth Exchange (JHE) instance — where the data lives:**
 - `JHE_URL` — its **base URL** (e.g. `https://jhe.fly.dev`). Must exactly match the JHE
@@ -106,4 +108,6 @@ will raise; iterate on visuals with the smoke-test fakes pattern (see `tests/tes
 ## Scope
 Generic infrastructure (a POC scaffold). You own clinical analytics, EHR registration,
 security review, and production deployment.
-- Access control: an allowlisted EHR launch is the only way in; no launch, no page, no kernel; a session cannot run code. One standalone server is one trust domain; multi-org deployments use JupyterHub. See docs/deployment.md.
+- Access control: an allowlisted EHR launch is the only way in; no launch, no page, no
+  kernel; a session cannot run code. One standalone server is one trust domain; multi-org
+  deployments use JupyterHub. See `docs/deployment.md`.

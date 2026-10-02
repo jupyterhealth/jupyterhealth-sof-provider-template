@@ -74,9 +74,11 @@ The EHR launch is the only way in; there is no separate login.
   kernel Voilà started for it. It **cannot run code**: the kernel connection drops
   `execute_request` (only widget comm messages pass), so the only code that ever runs is
   the committed notebook. It cannot list or attach to other sessions' kernels, use the
-  file API, read the notebook source, or open a terminal (terminals are disabled). The
-  server runs as an unprivileged user with the app directory read-only.
-  Locally (`make run`) the server root is the project directory, so any notebook in it is renderable by a launched session; the Docker image narrows the root to `/app/notebooks` via `NOTEBOOK_DIR`.
+  file API, read the notebook source, or open a terminal (terminals are disabled). In the
+  Docker image the server runs as an unprivileged user with the app directory read-only.
+  Locally (`make run`) the server root is the project directory, so any notebook in it is
+  renderable by a launched session; the Docker image narrows the root to `/app/notebooks`
+  via `NOTEBOOK_DIR`.
 - **What remains, stated plainly.** (1) Widget messages: a session can send any comm
   message its own kernel's widgets accept; the default dashboard registers none.
   (2) Voilà's own kernel-shutdown route checks login only, so a session that somehow learns

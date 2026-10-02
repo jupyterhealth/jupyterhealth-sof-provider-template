@@ -57,15 +57,17 @@ token to create or manage. Five things must be in place
 
 3. **Configure JHE to trust the EHR** — set these two `JheSetting` rows on the JHE
    instance (created by `manage.py seed`; edit via the JHE settings admin/API):
-   - `auth.sof.trusted_issuers` (json array) — the EHR's OIDC issuer URL(s) (the `iss`
-     in the id_token, typically the FHIR base URL, e.g. `https://fhir.ehr.example/r4`).
+   - `auth.sof.trusted_issuers` (json array) — the OIDC issuer URL the EHR puts in the
+     id_token's `iss` claim (for Epic `https://fhir.epic.com/interconnect-fhir-oauth/oauth2`;
+     for Medplum `https://api.medplum.com/`), which is usually NOT the FHIR base URL.
    - `auth.sof.trusted_audience` (string) — this app's `client_id` as registered at
      the EHR (the `aud` the EHR puts in the id_token).
 
 4. **Decide which EHR(s) may launch the app** — put their FHIR base URL(s) in `.env` as
    `SMART_ALLOWED_ISSUERS` (space-separated). This is the `iss` value you will see on the
-   launch URL during testing. Use the same URLs you put in JHE's `auth.sof.trusted_issuers`.
-   The server refuses to start while this is empty.
+   launch URL during testing. This is usually **not** the same value as JHE's
+   `auth.sof.trusted_issuers` (that holds the id_token issuer, e.g. Epic's `.../oauth2`);
+   see the table in docs/deployment.md. The server refuses to start while this is empty.
 
 5. **Seed the JHE Practitioner** — the launching clinician must exist in JHE with an
    `identifier` whose value equals the EHR's Practitioner id (the `fhirUser` claim in
