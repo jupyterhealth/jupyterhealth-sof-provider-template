@@ -17,7 +17,10 @@ c.ServerApp.terminals_enabled = False  # noqa: F821
 # disable the extension that provides the only authentication.
 c.ServerApp.reraise_server_extension_failures = True  # noqa: F821
 # Only the dashboard notebook lives under root_dir; nothing else is renderable or listable.
-c.ServerApp.root_dir = os.environ.get("NOTEBOOK_DIR", "/app/notebooks")  # noqa: F821
+# Docker narrows this to /app/notebooks via NOTEBOOK_DIR; locally the notebook sits beside this file.
+c.ServerApp.root_dir = os.environ.get(  # noqa: F821
+    "NOTEBOOK_DIR", os.path.dirname(os.path.abspath(__file__))
+)
 
 # --- SMART on FHIR launch (jupyter-smart-on-fhir) ---
 # client_id/scopes come from .env; fallbacks are neutral placeholders. Public client + PKCE.
@@ -28,7 +31,8 @@ c.SMARTExtensionApp.scopes = os.environ.get(
     "SMART_SCOPES", "openid fhirUser launch patient/*.read"
 ).split()
 # Only these EHRs may launch the app (the launch `iss`). Required: the server refuses to
-# start when empty. Keep in step with JHE's auth.sof.trusted_issuers.
+# start when empty. Launch `iss` = FHIR base URL; NOT JHE's auth.sof.trusted_issuers (that
+# is the id_token issuer).
 c.SMARTExtensionApp.allowed_issuers = os.environ.get("SMART_ALLOWED_ISSUERS", "").split()
 
 # --- Reverse proxy / https fronting ---
@@ -41,8 +45,9 @@ if os.environ.get("SMART_REDIRECT_URI"):
 
 # --- Authentication + authorization ---
 # The EHR launch is the only way in. SMARTIdentityProvider makes "has an authenticated
-# SMART session cookie" the definition of a user, so Voilà's render handler and every
-# kernel route return 403 before any kernel starts for a browser that did not launch.
+# SMART session cookie" the definition of a user, so for a browser that did not launch,
+# Voilà's render URL redirects to a 403 /login page and every kernel route returns 403,
+# before any kernel starts.
 # SMARTAuthorizer then lets a session reach only the kernel Voilà started for it.
 c.ServerApp.identity_provider_class = (  # noqa: F821
     "jupyter_smart_on_fhir.server_extension.SMARTIdentityProvider"

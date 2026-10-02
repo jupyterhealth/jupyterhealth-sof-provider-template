@@ -88,7 +88,7 @@ async def complete_launch(jp_fetch):
     return cookie, dict(parse_qsl(urlparse(cb.headers["Location"]).query))["smart_session"]
 
 
-def test_real_config_wires_everything(jp_serverapp, jp_server_config):
+def test_real_config_wires_everything(jp_serverapp, jp_server_config, jp_root_dir):
     from jupyter_smart_on_fhir.server_extension import SMARTAuthorizer, SMARTIdentityProvider
 
     assert isinstance(jp_serverapp.identity_provider, SMARTIdentityProvider)
@@ -99,9 +99,12 @@ def test_real_config_wires_everything(jp_serverapp, jp_server_config):
     assert jp_serverapp.web_app.settings["smart_allowed_issuers"] == {ISS}
     km = jp_serverapp.kernel_manager
     assert km.cull_idle_timeout == 3600 and km.cull_connected is True
-    assert "execute_request" not in km.allowed_message_types and "comm_msg" in km.allowed_message_types
+    assert km.allowed_message_types == [
+        "comm_open", "comm_close", "comm_msg", "comm_info_request", "kernel_info_request", "shutdown_request",
+    ]
     # Voilà keeps its config on the handler kwargs, not in settings; assert the loaded Config.
     c = jp_server_config
+    assert c.ServerApp.root_dir == str(jp_root_dir)
     assert c.VoilaConfiguration.http_header_envs == ["Cookie"]
     assert c.VoilaConfiguration.file_allowlist == [] and c.VoilaConfiguration.strip_sources is True
     assert not (PROJECT_ROOT / "voila.json").exists()  # it would re-apply file_allowlist after this config
@@ -154,7 +157,7 @@ async def test_api_without_session_is_refused(jp_fetch, jp_serverapp):
 
 
 async def test_render_with_session_runs_one_kernel_that_reads_its_own_token(
-    jp_fetch, jp_ws_fetch, jp_serverapp, notebook
+    jp_fetch, jp_ws_fetch, jp_serverapp, notebook, tmp_path
 ):
     cookie, sid = await complete_launch(jp_fetch)
     r = await jp_fetch("voila", "render", "dashboard.ipynb", params={"smart_session": sid},
@@ -171,10 +174,12 @@ async def test_render_with_session_runs_one_kernel_that_reads_its_own_token(
     ws = await jp_ws_fetch("api", "kernels", kid, "channels", headers={"Cookie": cookie})
     ws.write_message(_msg("kernel_info_request"))
     assert "kernel_info_reply" in await _reply_types(ws)
-    ws.write_message(_msg("execute_request", {"code": "open('/tmp/pwned','w')", "silent": True,
+    pwned = tmp_path / "pwned"
+    ws.write_message(_msg("execute_request", {"code": f"open({str(pwned)!r}, 'w')", "silent": True,
                                               "store_history": False, "user_expressions": {},
                                               "allow_stdin": False, "stop_on_error": True}))
     assert "execute_reply" not in await _reply_types(ws)
+    assert not pwned.exists()
     ws.close()
 
     # Another authenticated session (a second launch from a different browser) is refused
