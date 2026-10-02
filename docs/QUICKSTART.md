@@ -42,7 +42,7 @@ There are two test paths for the SMART launch:
 
 Note your JHE base URL — that's your `JHE_URL` (e.g. `https://jhe.fly.dev`). The app mints
 its JHE token automatically from the SMART launch via the id_token exchange, so there is no
-token to create or manage. Four things must be in place
+token to create or manage. Five things must be in place
 (coordinate with whoever runs the JHE instance):
 
 1. **Register the SMART app at the EHR** with `openid fhirUser` in the scopes so the EHR
@@ -62,7 +62,12 @@ token to create or manage. Four things must be in place
    - `auth.sof.trusted_audience` (string) — this app's `client_id` as registered at
      the EHR (the `aud` the EHR puts in the id_token).
 
-4. **Seed the JHE Practitioner** — the launching clinician must exist in JHE with an
+4. **Decide which EHR(s) may launch the app** — put their FHIR base URL(s) in `.env` as
+   `SMART_ALLOWED_ISSUERS` (space-separated). This is the `iss` value you will see on the
+   launch URL during testing. Use the same URLs you put in JHE's `auth.sof.trusted_issuers`.
+   The server refuses to start while this is empty.
+
+5. **Seed the JHE Practitioner** — the launching clinician must exist in JHE with an
    `identifier` whose value equals the EHR's Practitioner id (the `fhirUser` claim in
    the id_token, e.g. `Practitioner/abc123` → id `abc123`).
 
@@ -83,6 +88,7 @@ effect on the next run. Set:
 - `SMART_CLIENT_ID` — the `client_id` from your EHR app registration (public client +
   PKCE; no secret); a placeholder works until you register, then paste the real value
 - `SMART_SCOPES` — SMART scopes for the launch (the default is usually fine)
+- `SMART_ALLOWED_ISSUERS` — **required**: the EHR FHIR base URL(s) from step 1.4
 - `EHR_IFRAME_ORIGIN` — only for EHRs that iframe-embed the app (e.g. Epic); redirect
   launches like Medplum ignore it, so the default is fine
 - `MRN_IDENTIFIER_SYSTEM` — the EHR `Patient.identifier` system that holds the MRN
@@ -156,7 +162,7 @@ pytest tests/test_smoke.py
 - [ehr-registration.md](ehr-registration.md) — register the app with your EHR, scopes,
   and starting your security review.
 - [deployment.md](deployment.md) — deploy (Docker / fly.io), the **iframe/CSP gotcha**,
-  and the POC single-provider concurrency limitation.
+  and the access control and trust boundary.
 
 ---
 
@@ -165,7 +171,6 @@ pytest tests/test_smoke.py
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | Blank frame in an **iframe-embedding** EHR (e.g. Epic) | CSP `frame-ancestors` blocks the embed (N/A to redirect launches like Medplum) | Set `EHR_IFRAME_ORIGIN` to the EHR origin; see deployment.md → "iframe/CSP gotcha" |
-| `LaunchContextError: SMART_TOKEN_FILE is not set` | App opened without a SMART launch | Launch it from the EHR (step 4), not directly |
 | `LaunchContextError: No identifier with system ... found` | `MRN_IDENTIFIER_SYSTEM` doesn't match the EHR's MRN system | Inspect the EHR `Patient.identifier` and set the correct system |
 | `PatientNotInJHE: No JupyterHealth patient found for MRN ...` | JHE has no patient whose external id == that MRN | Add/align the patient's external identifier in JHE |
 | `LaunchContextError: Failed to fetch Patient/...` | EHR token/scope issue or wrong FHIR base | Check the SMART scopes include `patient/*.read` and the EHR FHIR base |
@@ -174,3 +179,9 @@ pytest tests/test_smoke.py
 | `TokenExchangeError` / "Practitioner not found" | The EHR Practitioner id from `fhirUser` doesn't match any JHE Practitioner `identifier` | Seed the JHE Practitioner with an `identifier` equal to the EHR Practitioner id (step 1 above) |
 | JHE calls return 401 | The exchanged JHE token was rejected (e.g. the launching Practitioner isn't on file in JHE, or trust isn't configured) | Confirm the token-exchange trust settings (step 1) and that the launching Practitioner exists in JHE |
 | "No <type> data for this patient" | No observations of that type in JHE for the patient | Confirm data exists; check `JHE_DATA_TYPE_CODES` (esp. the provisional `steps` code) |
+| Server exits with `allowed_issuers must list at least one EHR issuer` | `SMART_ALLOWED_ISSUERS` is empty in `.env` | Add your EHR's FHIR base URL (step 1.4) |
+| Launch shows "not an allowed EHR issuer" (400) | The EHR's `iss` isn't in `SMART_ALLOWED_ISSUERS` (or differs by host/case/trailing slash) | Copy the exact `iss` from the launch URL into `.env` |
+| Page says "This app must be opened from your EHR" (403) | You opened the app URL directly, your session expired, or the frame belongs to an earlier launch | Launch from the EHR patient chart again |
+| "No SMART session cookie was sent with this request" (400) | The browser blocked the app's cookie inside the EHR iframe | Register the app to open in a new window, or allow cookies for the app's site; serve over https |
+| "Your launch expired or the app restarted" (400) | More than 10 minutes passed before the EHR sent you back, the server restarted (sessions do not survive a restart), or the cookie was altered | Relaunch from the EHR |
+| `LaunchContextError: No SMART session cookie reached this kernel` | `http_header_envs` missing from `jupyter_server_config.py` | Keep `c.VoilaConfiguration.http_header_envs = ["Cookie"]` |

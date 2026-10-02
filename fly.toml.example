@@ -5,6 +5,7 @@ primary_region = "sjc"
 [build]
   dockerfile = "Dockerfile"
 
+# Sessions live in memory: keep this app on ONE machine (fly scale count 1).
 [http_service]
   internal_port = 8888
   force_https = true

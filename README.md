@@ -21,7 +21,7 @@ Then configure and run:
 
 ```
 python3 -m venv .venv && source .venv/bin/activate   # isolate deps (avoids system-Python errors)
-cp .env.example .env     # then fill in the 5 values below — or: make init (interactive)
+cp .env.example .env     # then fill in the values below — or: make init (interactive)
 pip install -e .         # or skip the venv + install and use: docker compose up --build
 make run                 # serve the dashboard with Voilà (or: docker compose up --build)
 ```
@@ -50,6 +50,7 @@ or `cp examples/cgm-dashboard.ipynb dashboard.ipynb` for the CGM showcase.
 - `MRN_IDENTIFIER_SYSTEM` — which **`Patient.identifier` system** holds the MRN. Set this
   same system + value on your test patient in the EHR. See `docs/ehr-registration.md` §3.
 - `SMART_SCOPES` — the SMART scopes to request at launch (the default is usually fine).
+- `SMART_ALLOWED_ISSUERS` — **required**: the FHIR base URL of each EHR allowed to launch the app (the launch `iss`), space-separated; **not** JHE's `trusted_issuers`, which is the id_token issuer — see `docs/deployment.md` for the table.
 
 **From your JupyterHealth Exchange (JHE) instance — where the data lives:**
 - `JHE_URL` — its **base URL** (e.g. `https://jhe.fly.dev`). Must exactly match the JHE
@@ -103,6 +104,6 @@ will raise; iterate on visuals with the smoke-test fakes pattern (see `tests/tes
 - [Voilà](https://voila.readthedocs.io/) (notebook → web app)
 
 ## Scope
-Generic infrastructure (a POC scaffold). It targets **one provider session at a time** —
-see the concurrency note in `docs/deployment.md`. You own clinical analytics, EHR
-registration, security review, production deployment, and concurrent-provider hardening.
+Generic infrastructure (a POC scaffold). You own clinical analytics, EHR registration,
+security review, and production deployment.
+- Access control: an allowlisted EHR launch is the only way in; no launch, no page, no kernel; a session cannot run code. One standalone server is one trust domain; multi-org deployments use JupyterHub. See docs/deployment.md.
