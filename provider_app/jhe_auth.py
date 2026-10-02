@@ -38,9 +38,9 @@ def _jhe_url(jhe_url: str | None) -> str:
 def exchange_token(context: LaunchContext, jhe_url: str | None = None) -> str:
     """Exchange the SMART access token for a JHE access token (RFC 8693).
 
-    JHE rejects issuers it is not configured to trust; the issuer defaults to the
-    EHR FHIR base and can be overridden via $JHE_TRUSTED_ISS for proxy setups
-    where the OIDC issuer differs from the FHIR base.
+    JHE rejects id_tokens whose own `iss` claim is not in auth.sof.trusted_issuers.
+    The `iss` form field (EHR FHIR base, or $JHE_TRUSTED_ISS) is still sent for
+    older JHE but is ignored by current JHE.
     """
     url = _jhe_url(jhe_url)
     iss = os.environ.get("JHE_TRUSTED_ISS", context.fhir_base).rstrip("/")

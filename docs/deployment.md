@@ -25,9 +25,9 @@ the next run. Values:
   | Medplum | `https://api.medplum.com/fhir/R4` | `https://api.medplum.com/` |
   | Your Epic | your production R4 base, from your Epic admin | your Epic OIDC issuer |
 
-  Because JHE validates the id_token issuer, deployments whose EHR id_token `iss` differs
-  from the FHIR base (Epic, Medplum) must also set `JHE_TRUSTED_ISS` in `.env` to the
-  right-hand column value.
+  JHE validates the id_token's own issuer against `auth.sof.trusted_issuers`; put the
+  right-hand column value there. (`JHE_TRUSTED_ISS` in `.env` is accepted for backward
+  compatibility but current JHE ignores it.)
 - `EHR_IFRAME_ORIGIN` — only used by EHRs that **iframe-embed** the app (e.g. Epic); the CSP
   allows that origin to embed it. Redirect-style launches (Medplum) ignore it — see below.
 - `MRN_IDENTIFIER_SYSTEM` — the EHR `Patient.identifier` system that holds the MRN
@@ -102,10 +102,13 @@ The EHR launch is the only way in; there is no separate login.
   (2) Voilà's own kernel-shutdown route checks login only, so a session that somehow learns
   another session's kernel id (random, never listed) could stop that kernel: a nuisance,
   not a data exposure. (3) All kernels still run as one OS user, so one server is still
-  one trust domain by design.
-- **Sizing.** Each rendered dashboard holds a kernel (~100 MB+) until the tab's shutdown
-  beacon fires or idle culling (1 h) reaps it; a 1 GB VM supports only a handful of
-  concurrent sessions.
+  one trust domain by design. (4) `/metrics` (Prometheus) is readable by any launched
+  session; it is not authorizer-guarded and holds no PHI.
+- **Sizing.** Each rendered dashboard holds a kernel (~100 MB+). A session's kernels are
+  shut down when the session ends (relaunch, logout, expiry), and idle kernels are culled
+  after 10 minutes. The tab's unload beacon only works where the `_xsrf` cookie is accepted
+  (top-level launches, not the EHR iframe). A 1 GB VM supports a handful of concurrent
+  sessions.
 - **Trust boundary.** **One standalone server is one trust domain**: suitable for a single
   organization's clinic team or a pilot, where every launcher is an authorized user of the
   same EHR and the EHR audits each launch. For multiple organizations or large user
@@ -114,7 +117,7 @@ The EHR launch is the only way in; there is no separate login.
 - **Demo vs production.** Keep separate instances: a demo that trusts the Epic sandbox
   would otherwise admit anyone with public sandbox credentials.
 - **Sessions expire** with the EHR token's `expires_in` (cap `SMARTExtensionApp.session_lifetime`,
-  default 1 h); expired token files are removed; idle kernels are culled after an hour.
+  default 1 h); expired token files are removed along with their kernels.
   `/logout` clears the server-side session only; it does not revoke the EHR token.
 - **One session per browser.** A new launch replaces the previous session in that browser.
   Each render URL names its session, so an older frame fails closed (403) instead of
