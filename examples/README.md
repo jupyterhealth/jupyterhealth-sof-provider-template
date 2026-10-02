@@ -28,8 +28,10 @@ still gets the report, with the showcase quietly noting the absent signals.
 
 ### Use it in your project
 
-1. Copy it over the dashboard at the repo root (Voilà only serves a notebook named
-   `dashboard.ipynb` — see `file_allowlist` in `jupyter_server_config.py`):
+1. Copy it over the dashboard at the repo root (Voilà renders `default_url`,
+   `dashboard.ipynb`; in Docker only `dashboard.ipynb` is under `root_dir`
+   (`/app/notebooks`), while locally any notebook under the project directory can be
+   rendered):
    ```
    cp examples/cgm-dashboard.ipynb dashboard.ipynb
    ```
@@ -77,7 +79,10 @@ The resolver matches on identifier **value** only, so the EHR and JHE identifier
 ```
 JHE_URL=https://jhe.fly.dev
 MRN_IDENTIFIER_SYSTEM=<the system you stamped on the Medplum patient>
-# JHE_TRUSTED_ISS=    # set only if JHE's trusted issuer differs from the EHR FHIR base
+SMART_ALLOWED_ISSUERS=https://api.medplum.com/fhir/R4
+# JHE checks the id_token iss (https://api.medplum.com/) against auth.sof.trusted_issuers;
+# JHE_TRUSTED_ISS is still sent for older JHE but current JHE ignores it
+JHE_TRUSTED_ISS=https://api.medplum.com/
 ```
 The app mints its JHE token at launch via the id_token exchange, so there is no token to set.
 
@@ -86,6 +91,10 @@ The app mints its JHE token at launch via the id_token exchange, so there is no 
 ```
 JHE_URL=https://jhe.fly.dev
 SMART_CLIENT_ID=<your Medplum SMART client_id>
+# Launch iss (FHIR base) allowed to open the app; the server refuses to start without it
+SMART_ALLOWED_ISSUERS=https://api.medplum.com/fhir/R4
+# Optional: current JHE ignores this and checks the id_token iss against auth.sof.trusted_issuers
+JHE_TRUSTED_ISS=https://api.medplum.com/
 EHR_IFRAME_ORIGIN=https://app.medplum.com            # unused by Medplum (redirect launch); only iframe EHRs need it
 MRN_IDENTIFIER_SYSTEM=<same system as the Medplum patient identifier>
 ```

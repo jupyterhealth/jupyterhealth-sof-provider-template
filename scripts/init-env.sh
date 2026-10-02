@@ -31,10 +31,15 @@ prompt() {
   prompt JHE_CLIENT_ID         "JHE confidential client id for the token exchange" "sof-ehr-launch"
   prompt JHE_CLIENT_SECRET     "JHE confidential client secret"             "sof-ehr-launch-dev-secret"
   prompt SMART_CLIENT_ID       "SMART client_id from your EHR app registration" "00000000-0000-0000-0000-000000000000"
+  prompt SMART_ALLOWED_ISSUERS "FHIR base URL(s) of the EHR(s) allowed to launch this app, space-separated (the launch \`iss\`; e.g. https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4)" ""
   prompt SMART_SCOPES          "SMART scopes (space-separated)"             "openid fhirUser launch patient/*.read"
   prompt EHR_IFRAME_ORIGIN     "EHR web origin that embeds this app (CSP)"  "https://app.medplum.com"
   prompt MRN_IDENTIFIER_SYSTEM "FHIR Patient.identifier system holding the MRN" "https://example.org/mrn"
 } > .env
+
+if grep -qx 'SMART_ALLOWED_ISSUERS=' .env; then
+  echo "WARNING: SMART_ALLOWED_ISSUERS is empty; the server will refuse to start until you set it in .env"
+fi
 
 echo
 echo "Wrote .env. Confirm JHE trusts your EHR issuer, then run: make run"

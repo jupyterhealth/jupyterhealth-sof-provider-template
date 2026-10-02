@@ -1,7 +1,0 @@
-{
-    "VoilaConfiguration": {
-        "file_allowlist": ["dashboard.ipynb"],
-        "strip_sources": true,
-        "theme": "light"
-    }
-}

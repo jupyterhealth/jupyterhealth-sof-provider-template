@@ -1,27 +1,47 @@
+import base64
 import json
 
 import pytest
 
 from provider_app import launch_context
 
+SID = "t" * 32
 
-def _write_token(tmp_path, patient="Patient123"):
-    token_file = tmp_path / "smart_token.json"
-    token_file.write_text(
+
+def _signed_cookie(sid=SID, name="smart-session"):
+    b = base64.b64encode(sid.encode()).decode()
+    return f'{name}="2|1:0|10:1700000000|{len(name)}:{name}|{len(b)}:{b}|sig"'
+
+
+def _write_token(
+    tmp_path, patient="Patient123", token=None, fhir_url="https://fhir.example.org"
+):
+    """Write a per-session token file; return the env the Voilà kernel would see."""
+    (tmp_path / f"{SID}.json").write_text(
         json.dumps(
             {
-                "token": {
+                "token": token
+                or {
                     "access_token": "ABC",
                     "id_token": "ID-TOKEN",
                     "patient": patient,
                     "scope": "patient/*.read",
                 },
-                "fhir_url": "https://fhir.example.org",
+                "fhir_url": fhir_url,
                 "smart_config": {},
+                "expires_at": 4_000_000_000,
             }
         )
     )
-    return token_file
+    return {
+        "SMART_TOKEN_DIR": str(tmp_path),
+        "HTTP_COOKIE": f"_xsrf=1; {_signed_cookie()}",
+    }
+
+
+def _set_env(monkeypatch, env):
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
 
 
 def _patient_resource(mrn="MRN-999", system="urn:mrn"):
@@ -36,8 +56,7 @@ def _patient_resource(mrn="MRN-999", system="urn:mrn"):
 
 
 def test_current_reads_token_and_mrn(tmp_path, monkeypatch):
-    token_file = _write_token(tmp_path)
-    monkeypatch.setenv("SMART_TOKEN_FILE", str(token_file))
+    _set_env(monkeypatch, _write_token(tmp_path))
     monkeypatch.setenv("MRN_IDENTIFIER_SYSTEM", "urn:mrn")
 
     captured = {}
@@ -67,15 +86,17 @@ def test_current_reads_token_and_mrn(tmp_path, monkeypatch):
     assert captured["headers"]["Authorization"] == "Bearer ABC"
 
 
-def test_missing_token_file_raises(monkeypatch, tmp_path):
-    monkeypatch.setenv("SMART_TOKEN_FILE", str(tmp_path / "nope.json"))
-    with pytest.raises(launch_context.LaunchContextError):
+def test_unknown_session_raises(monkeypatch, tmp_path):
+    monkeypatch.setenv("SMART_TOKEN_DIR", str(tmp_path))
+    monkeypatch.setenv("HTTP_COOKIE", _signed_cookie("z" * 32))
+    with pytest.raises(
+        launch_context.LaunchContextError, match="expired or not launched"
+    ):
         launch_context.current()
 
 
 def test_missing_mrn_identifier_raises(tmp_path, monkeypatch):
-    token_file = _write_token(tmp_path)
-    monkeypatch.setenv("SMART_TOKEN_FILE", str(token_file))
+    _set_env(monkeypatch, _write_token(tmp_path))
     monkeypatch.setenv("MRN_IDENTIFIER_SYSTEM", "urn:mrn")
 
     def fake_get(url, headers=None):
@@ -92,31 +113,26 @@ def test_missing_mrn_identifier_raises(tmp_path, monkeypatch):
         launch_context.current(http_get=fake_get)
 
 
-def test_missing_token_file_env_var_raises(monkeypatch):
-    monkeypatch.delenv("SMART_TOKEN_FILE", raising=False)
-    with pytest.raises(launch_context.LaunchContextError):
+def test_missing_session_cookie_raises(monkeypatch, tmp_path):
+    monkeypatch.setenv("SMART_TOKEN_DIR", str(tmp_path))
+    with pytest.raises(launch_context.LaunchContextError, match="session cookie"):
+        launch_context.current()
+
+
+def test_expired_session_file_raises(monkeypatch, tmp_path):
+    env = _write_token(tmp_path)
+    data = json.loads((tmp_path / f"{SID}.json").read_text())
+    data["expires_at"] = 1
+    (tmp_path / f"{SID}.json").write_text(json.dumps(data))
+    _set_env(monkeypatch, env)
+    with pytest.raises(launch_context.LaunchContextError, match="expired"):
         launch_context.current()
 
 
 def test_ehr_http_error_wrapped(tmp_path, monkeypatch):
     import requests
 
-    token_file = tmp_path / "smart_token.json"
-    token_file.write_text(
-        json.dumps(
-            {
-                "token": {
-                    "access_token": "ABC",
-                    "id_token": "ID-TOKEN",
-                    "patient": "P1",
-                    "scope": "patient/*.read",
-                },
-                "fhir_url": "https://fhir.example.org",
-                "smart_config": {},
-            }
-        )
-    )
-    monkeypatch.setenv("SMART_TOKEN_FILE", str(token_file))
+    _set_env(monkeypatch, _write_token(tmp_path, patient="P1"))
     monkeypatch.setenv("MRN_IDENTIFIER_SYSTEM", "urn:mrn")
 
     def fake_get(url, headers=None):
@@ -144,20 +160,18 @@ class _FakePatient:
 
 
 def test_launch_context_exposes_id_token(tmp_path, monkeypatch):
-    token_file = tmp_path / "smart_token.json"
-    token_file.write_text(
-        json.dumps(
-            {
-                "token": {
-                    "access_token": "ehr-access",
-                    "id_token": "ehr-id-token",
-                    "patient": "p1",
-                },
-                "fhir_url": "https://ehr.example.org/fhir",
-            }
-        )
+    _set_env(
+        monkeypatch,
+        _write_token(
+            tmp_path,
+            token={
+                "access_token": "ehr-access",
+                "id_token": "ehr-id-token",
+                "patient": "p1",
+            },
+            fhir_url="https://ehr.example.org/fhir",
+        ),
     )
-    monkeypatch.setenv("SMART_TOKEN_FILE", str(token_file))
     monkeypatch.setenv("MRN_IDENTIFIER_SYSTEM", "urn:mrn")
 
     ctx = launch_context.current(http_get=lambda url, headers=None: _FakePatient())
