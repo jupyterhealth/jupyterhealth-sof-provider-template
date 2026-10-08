@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 dependencies = [
-    "jupyter-smart-on-fhir==0.2.0",
+    "jupyter-smart-on-fhir==0.2.1",
     "jupyterhealth-client>=0.2.0",
     "voila>=0.5",
     "jupyter-server>=2.0",
